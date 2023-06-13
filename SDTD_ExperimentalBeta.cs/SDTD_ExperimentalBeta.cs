@@ -32,12 +32,12 @@ namespace WindowsGSM.Plugins
     {
         public Plugin Plugin = new Plugin
         {
-            name = "WindowsGSM.SDTD_ExperimentalBeta", // WindowsGSM.XXXX
+            name = "WindowsGSM.SDTD_ExperimentalBeta",
             author = "LegendSeeker",
             description = "🧩 WindowsGSM plugin for supporting 7 Days to Die Dedicated Server running Experimental Beta",
             version = "0.1",
-            url = "https://github.com/LegendSeeker/WindowsGSM.SDTD_ExperimentalBeta", // Github repository link (Best practice)
-            color = "#38CDD4" // Color Hex
+            url = "https://github.com/LegendSeeker/WindowsGSM.SDTD_ExperimentalBeta", 
+            color = "#5c1504" // Color Hex
         };
 
         private readonly Functions.ServerConfig _serverData;
