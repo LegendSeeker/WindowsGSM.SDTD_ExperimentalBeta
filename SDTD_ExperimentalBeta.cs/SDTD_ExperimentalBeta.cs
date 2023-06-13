@@ -6,7 +6,7 @@ using WindowsGSM.Installer;
 using WindowsGSM.GameServer.Engine;
 using WindowsGSM.Functions;
 
-namespace WindowsGSM.GameServer
+namespace WindowsGSM.Plugins
 {
     /// <summary>
     /// 
@@ -16,7 +16,7 @@ namespace WindowsGSM.GameServer
     /// Moreover, it has his input bar on the bottom so a normal sendkey method is not working.
     /// We need to send a {TAB} => (Send text) => {TAB} => (Send text) => {ENTER} to make the input cursor is on the input bar and send the command successfully.
     /// 
-    /// RedirectStandardInput:  NO WORKING
+    /// RedirectStandardInput:  NOT WORKING
     /// RedirectStandardOutput: YES (Used)
     /// RedirectStandardError:  YES (Used)
     /// SendKeys Input Method:  YES (Used)
@@ -36,7 +36,7 @@ namespace WindowsGSM.GameServer
             author = "LegendSeeker",
             description = "🧩 WindowsGSM plugin for supporting 7 Days to Die Dedicated Server running Experimental Beta",
             version = "0.1",
-            url = "https://github.com/DoctorBeardz/WindowsGSM.ProjectZomboid", // Github repository link (Best practice)
+            url = "https://github.com/LegendSeeker/WindowsGSM.SDTD_ExperimentalBeta", // Github repository link (Best practice)
             color = "#38CDD4" // Color Hex
         };
 
@@ -45,7 +45,7 @@ namespace WindowsGSM.GameServer
         public new string Error;
         public new string Notice;
 
-        public const string FullName = "7DTD Dedicated Server - Experimental Beta";
+        public string FullName = "7DTD Dedicated Server - Experimental Beta";
         public new string StartPath = "7DaysToDieServer.exe";
         public bool AllowsEmbedConsole = true;
         public int PortIncrements = 1;
@@ -155,28 +155,27 @@ namespace WindowsGSM.GameServer
             });
         }
 
-        public async Task<Process> Install()
+        public new async Task<Process> Install()
         {
-            var steamCMD = new Installer.SteamCMD();
+            var steamCMD = new Installer.SteamCMD();            
+
             Process p = await steamCMD.Install(_serverData.ServerID, string.Empty, AppId);
             Error = steamCMD.Error;
 
             return p;
         }
 
-        public async Task<Process> Update(bool validate = false, string custom = null)
+        public new async Task<Process> Update(bool validate = false, string custom = null)
         {
-            if (custom == null)
-            {
-                custom = "-beta latest_experimental";
-            }
-
+            custom = "-beta latest_experimental";
+			validate = true;
+			
             var (p, error) = await Installer.SteamCMD.UpdateEx(_serverData.ServerID, AppId, validate, custom: custom);
             Error = error;
             return p;
         }
 
-        public bool IsInstallValid()
+        public new bool IsInstallValid()
         {
             string exeFile = "7DaysToDieServer.exe";
             string exePath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, exeFile);
@@ -184,7 +183,7 @@ namespace WindowsGSM.GameServer
             return File.Exists(exePath);
         }
 
-        public bool IsImportValid(string path)
+        public new bool IsImportValid(string path)
         {
             string exeFile = "7DaysToDieServer.exe";
             string exePath = Path.Combine(path, exeFile);
@@ -193,13 +192,13 @@ namespace WindowsGSM.GameServer
             return File.Exists(exePath);
         }
 
-        public string GetLocalBuild()
+        public new string GetLocalBuild()
         {
             var steamCMD = new Installer.SteamCMD();
             return steamCMD.GetLocalBuild(_serverData.ServerID, AppId);
         }
 
-        public async Task<string> GetRemoteBuild()
+        public new async Task<string> GetRemoteBuild()
         {
             var steamCMD = new Installer.SteamCMD();
             return await steamCMD.GetRemoteBuild(AppId);
