@@ -7,7 +7,7 @@ The Server World Data is now moved to servers/%ID%/serverfiles/userdata.
 If you already had a Server running where you want to continue, please move everything from %appdata%\7DaysToDie\ (just put it in explorer, will expand to C:\Users\YourWindowsUser\AppData\Roaming) 
 => to WindowsGSM servers/%ID%/serverfiles/userdata (you can find it by marking the server in wgsm and click Browse => Server Files )
 
-then replace `serverconfig.xml`. just make sure to keep:
+then replace the wgsm `serverconfig.xml` with your existing one . just make sure to keep/add:
 <property name="UserDataFolder"		value="userdata" />
 
 ## Initial Setup
