@@ -4,7 +4,8 @@ I created this plugin simply to have WindowsGSM host/update from experimental be
 
 ## Importing a server
 The Server World Data is now moved to servers/%ID%/serverfiles/userdata. 
-If you already had a Server running where you want to continue, please move everything from %appdata%\7DaysToDie\ to servers/%ID%/serverfiles/userdata
+If you already had a Server running where you want to continue, please move everything from %appdata%\7DaysToDie\ (just put it in explorer, will expand to C:\Users\YourWindowsUser\AppData\Roaming) 
+=> to WindowsGSM servers/%ID%/serverfiles/userdata (you can find it by marking the server in wgsm and click Browse => Server Files )
 
 then replace `serverconfig.xml`. just make sure to keep:
 <property name="UserDataFolder"		value="userdata" />
