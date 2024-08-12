@@ -161,22 +161,18 @@ namespace WindowsGSM.Plugins
 
         public async Task Stop(Process p)
         {
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 Functions.ServerConsole.SetMainWindow(p.MainWindowHandle);
-                p.CloseMainWindow();
+                Functions.ServerConsole.SendWaitToMainWindow("^c");
+                Thread.Sleep(500);
                 Functions.ServerConsole.SendWaitToMainWindow("{ENTER}");
+
+                p.CloseMainWindow();
+                Thread.Sleep(1000);
+                if (!p.HasExited)
+                    p.Kill();
             });
-        }
-
-        public new async Task<Process> Install()
-        {
-            var steamCMD = new Installer.SteamCMD();
-
-            Process p = await steamCMD.Install(_serverData.ServerID, string.Empty, AppId);
-            Error = steamCMD.Error;
-
-            return p;
         }
 
         public new async Task<Process> Update(bool validate = false, string custom = null)
