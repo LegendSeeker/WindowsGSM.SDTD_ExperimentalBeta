@@ -82,6 +82,10 @@ namespace WindowsGSM.Plugins
                 configText = configText.Replace("{{port}}", serverData.ServerPort);
                 configText = configText.Replace("{{telnetPort}}", (int.Parse(serverData.ServerPort) - int.Parse(Port) + 8081).ToString());
                 configText = configText.Replace("{{maxplayers}}", Maxplayers);
+
+                //it is not good to have the serverdata in %AppData% as the user will forget it, as nearly all windowsgsm servers store it inside the WindosGSM structure
+                //also the backup function would be useless without
+                configText = configText.Replace("<!-- <property name=\"UserDataFolder\"\t\t\t\tvalue=\"absolute path\" /> -->", "<property name=\"UserDataFolder\"\t\t\t\tvalue=\"userdata\" />");
                 File.WriteAllText(configPath, configText);
             }
 
