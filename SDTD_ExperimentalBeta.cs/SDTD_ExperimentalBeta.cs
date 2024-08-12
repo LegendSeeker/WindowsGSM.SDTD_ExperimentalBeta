@@ -2,10 +2,10 @@
 using System.Diagnostics;
 using System.IO;
 using System;
-using WindowsGSM.Installer;
 using WindowsGSM.GameServer.Engine;
 using WindowsGSM.Functions;
 using WindowsGSM.GameServer.Query;
+using System.Threading;
 
 namespace WindowsGSM.Plugins
 {
@@ -41,14 +41,10 @@ namespace WindowsGSM.Plugins
             color = "#5c1504" // Color Hex
         };
 
-        private readonly Functions.ServerConfig _serverData;
-
-        public new string Error;
-        public new string Notice;
-
         public string FullName = "7DTD Dedicated Server - Experimental Beta";
-        public new string StartPath = "7DaysToDieServer.exe";
+        public override string StartPath => "7DaysToDieServer.exe";
         public bool AllowsEmbedConsole = true;
+        public override bool loginAnonymous => false;
         public int PortIncrements = 1;
         public dynamic QueryMethod = new A2S();
 
@@ -58,39 +54,46 @@ namespace WindowsGSM.Plugins
         public string Maxplayers = "8";
         public string Additional = string.Empty;
 
-        public new string AppId = "294420";
+        public override string AppId => "294420";
 
-        public SDTD_ExperimentalBeta(ServerConfig serverData) : base(serverData) => base.serverData = _serverData = serverData;
-        public string OldProfile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "\\7DaysToDie\\Saves");
+        public string OldProfile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7DaysToDie\\Saves");
 
-        public async void CreateServerCFG()
+        public SDTD_ExperimentalBeta(ServerConfig serverData) : base(serverData) => base.serverData = serverData;
+
+        public void CreateServerCFG()
         {
             //Download serverconfig.xml
-            string configPath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, "serverconfig.xml");
-            if (await Functions.Github.DownloadGameServerConfig(configPath, FullName))
+            string configPath = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "serverconfig.xml");
+            string configTmp = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "serverconfig.xml.template");
+
+            if (Functions.Github.DownloadGameServerConfig(configTmp, "7 Days to Die Dedicated Server").Result)
             {
-                if (File.Exists(OldProfile))
-                    await UI.CreateYesNoPromptV1("Old server userdata found", $"An Old Savegame found in {OldProfile}\n\n" +
+                //make a backup of the provided file
+                File.Move(configPath, configPath + ".bak");
+
+                //it would be possible to automatically move it, but that gets messy when the user has multiple servers
+                if (Directory.Exists(OldProfile))
+                    UI.CreateYesNoPromptV1("Old server userdata found", $"An Old Savegame found in {OldProfile}\n\n" +
                         $"If you want to use it, you need to move/copy it manually to \n" +
-                        $"servers/{_serverData.ServerID}/serverfiles/userdata", "Ok", "Ok");
-                string configText = File.ReadAllText(configPath);
-                configText = configText.Replace("{{hostname}}", _serverData.ServerName);
-                configText = configText.Replace("{{rcon_password}}", _serverData.GetRCONPassword());
-                configText = configText.Replace("{{port}}", _serverData.ServerPort);
-                configText = configText.Replace("{{telnetPort}}", (int.Parse(_serverData.ServerPort) - int.Parse(Port) + 8081).ToString());
+                        $"servers/{serverData.ServerID}/serverfiles/userdata", "Ok", "Ok");
+                string configText = File.ReadAllText(configTmp);
+                configText = configText.Replace("{{hostname}}", serverData.ServerName);
+                configText = configText.Replace("{{rcon_password}}", serverData.GetRCONPassword());
+                configText = configText.Replace("{{port}}", serverData.ServerPort);
+                configText = configText.Replace("{{telnetPort}}", (int.Parse(serverData.ServerPort) - int.Parse(Port) + 8081).ToString());
                 configText = configText.Replace("{{maxplayers}}", Maxplayers);
                 File.WriteAllText(configPath, configText);
             }
 
             //Create steam_appid.txt
-            string txtPath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, "steam_appid.txt");
+            string txtPath = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "steam_appid.txt");
             File.WriteAllText(txtPath, "251570");
         }
 
         public async Task<Process> Start()
         {
             string exeName = "7DaysToDieServer.exe";
-            string workingDir = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID);
+            string workingDir = Functions.ServerPath.GetServersServerFiles(serverData.ServerID);
             string exePath = Path.Combine(workingDir, exeName);
 
             if (!File.Exists(exePath))
@@ -99,22 +102,22 @@ namespace WindowsGSM.Plugins
                 return null;
             }
 
-            string configPath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, "serverconfig.xml");
+            string configPath = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "serverconfig.xml");
             if (!File.Exists(configPath))
             {
                 Notice = $"serverconfig.xml not found ({configPath})";
             }
 
-            if (File.Exists(OldProfile))
+            if (Directory.Exists(OldProfile))
             {
-                Notice = $"An Old Savegame found in {OldProfile}\n\n" +
+                Notice = Notice + $"An Old Savegame found in {OldProfile}\n\n" +
                         $"If you want to use it, you need to move/copy it manually to \n" +
-                        $"servers/{_serverData.ServerID}/serverfiles/userdata.\n" +
+                        $"servers/{serverData.ServerID}/serverfiles/userdata.\n" +
                         $"If this is intentional, ignore this";
             }
 
             string logFile = @"7DaysToDieServer_Data\output_log_dedi__" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss") + ".txt";
-            string param = $"-logfile \"{Path.Combine(workingDir, logFile)}\" -quit -batchmode -nographics -configfile=serverconfig.xml -dedicated {_serverData.ServerParam}";
+            string param = $"-logfile \"{Path.Combine(workingDir, logFile)}\" -quit -batchmode -nographics -configfile=serverconfig.xml -dedicated {serverData.ServerParam}";
 
             Process p;
             if (!AllowsEmbedConsole)
@@ -148,13 +151,14 @@ namespace WindowsGSM.Plugins
                     },
                     EnableRaisingEvents = true
                 };
-                var serverConsole = new Functions.ServerConsole(_serverData.ServerID);
+                var serverConsole = new Functions.ServerConsole(serverData.ServerID);
                 p.OutputDataReceived += serverConsole.AddOutput;
                 p.ErrorDataReceived += serverConsole.AddOutput;
                 p.Start();
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
             }
+            Console.WriteLine($"starting server:");
 
             return p;
         }
@@ -180,38 +184,9 @@ namespace WindowsGSM.Plugins
             custom = "-beta latest_experimental";
             validate = true;
 
-            var (p, error) = await Installer.SteamCMD.UpdateEx(_serverData.ServerID, AppId, validate, custom: custom);
+            var (p, error) = await Installer.SteamCMD.UpdateEx(serverData.ServerID, AppId, validate, custom: custom);
             Error = error;
             return p;
-        }
-
-        public new bool IsInstallValid()
-        {
-            string exeFile = "7DaysToDieServer.exe";
-            string exePath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, exeFile);
-
-            return File.Exists(exePath);
-        }
-
-        public new bool IsImportValid(string path)
-        {
-            string exeFile = "7DaysToDieServer.exe";
-            string exePath = Path.Combine(path, exeFile);
-
-            Error = $"Invalid Path! Fail to find {exeFile}";
-            return File.Exists(exePath);
-        }
-
-        public new string GetLocalBuild()
-        {
-            var steamCMD = new Installer.SteamCMD();
-            return steamCMD.GetLocalBuild(_serverData.ServerID, AppId);
-        }
-
-        public new async Task<string> GetRemoteBuild()
-        {
-            var steamCMD = new Installer.SteamCMD();
-            return await steamCMD.GetRemoteBuild(AppId);
         }
     }
 }
