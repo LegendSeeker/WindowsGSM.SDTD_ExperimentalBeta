@@ -107,7 +107,7 @@ namespace WindowsGSM.Plugins
             }
 
             string configPath = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "serverconfig.xml");
-            if (!File.Exists(configPath) && new FileInfo(configPath).Length == 0)
+            if (!File.Exists(configPath) || new FileInfo(configPath).Length == 0)
             {
                 Notice = $"serverconfig.xml not found ({configPath}), reloading it from https://github.com/WindowsGSM/Game-Server-Configs";
                 CreateServerCFG();
