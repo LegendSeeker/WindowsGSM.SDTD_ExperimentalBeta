@@ -5,6 +5,7 @@ using System;
 using WindowsGSM.Installer;
 using WindowsGSM.GameServer.Engine;
 using WindowsGSM.Functions;
+using WindowsGSM.GameServer.Query;
 
 namespace WindowsGSM.Plugins
 {
@@ -36,7 +37,7 @@ namespace WindowsGSM.Plugins
             author = "LegendSeeker",
             description = "🧩 WindowsGSM plugin for supporting 7 Days to Die Dedicated Server running Experimental Beta",
             version = "0.1",
-            url = "https://github.com/LegendSeeker/WindowsGSM.SDTD_ExperimentalBeta", 
+            url = "https://github.com/LegendSeeker/WindowsGSM.SDTD_ExperimentalBeta",
             color = "#5c1504" // Color Hex
         };
 
@@ -49,7 +50,7 @@ namespace WindowsGSM.Plugins
         public new string StartPath = "7DaysToDieServer.exe";
         public bool AllowsEmbedConsole = true;
         public int PortIncrements = 1;
-        public dynamic QueryMethod = null;
+        public dynamic QueryMethod = new A2S();
 
         public string Port = "26900";
         public string QueryPort = "26900";
@@ -157,7 +158,7 @@ namespace WindowsGSM.Plugins
 
         public new async Task<Process> Install()
         {
-            var steamCMD = new Installer.SteamCMD();            
+            var steamCMD = new Installer.SteamCMD();
 
             Process p = await steamCMD.Install(_serverData.ServerID, string.Empty, AppId);
             Error = steamCMD.Error;
@@ -168,8 +169,8 @@ namespace WindowsGSM.Plugins
         public new async Task<Process> Update(bool validate = false, string custom = null)
         {
             custom = "-beta latest_experimental";
-			validate = true;
-			
+            validate = true;
+
             var (p, error) = await Installer.SteamCMD.UpdateEx(_serverData.ServerID, AppId, validate, custom: custom);
             Error = error;
             return p;
