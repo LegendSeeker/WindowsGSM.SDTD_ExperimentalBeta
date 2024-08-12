@@ -61,6 +61,7 @@ namespace WindowsGSM.Plugins
         public new string AppId = "294420";
 
         public SDTD_ExperimentalBeta(ServerConfig serverData) : base(serverData) => base.serverData = _serverData = serverData;
+        public string OldProfile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "\\7DaysToDie\\Saves");
 
         public async void CreateServerCFG()
         {
@@ -68,6 +69,10 @@ namespace WindowsGSM.Plugins
             string configPath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, "serverconfig.xml");
             if (await Functions.Github.DownloadGameServerConfig(configPath, FullName))
             {
+                if (File.Exists(OldProfile))
+                    await UI.CreateYesNoPromptV1("Old server userdata found", $"An Old Savegame found in {OldProfile}\n\n" +
+                        $"If you want to use it, you need to move/copy it manually to \n" +
+                        $"servers/{_serverData.ServerID}/serverfiles/userdata", "Ok", "Ok");
                 string configText = File.ReadAllText(configPath);
                 configText = configText.Replace("{{hostname}}", _serverData.ServerName);
                 configText = configText.Replace("{{rcon_password}}", _serverData.GetRCONPassword());
@@ -98,6 +103,14 @@ namespace WindowsGSM.Plugins
             if (!File.Exists(configPath))
             {
                 Notice = $"serverconfig.xml not found ({configPath})";
+            }
+
+            if (File.Exists(OldProfile))
+            {
+                Notice = $"An Old Savegame found in {OldProfile}\n\n" +
+                        $"If you want to use it, you need to move/copy it manually to \n" +
+                        $"servers/{_serverData.ServerID}/serverfiles/userdata.\n" +
+                        $"If this is intentional, ignore this";
             }
 
             string logFile = @"7DaysToDieServer_Data\output_log_dedi__" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss") + ".txt";
