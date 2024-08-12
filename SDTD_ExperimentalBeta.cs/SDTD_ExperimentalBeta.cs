@@ -43,8 +43,8 @@ namespace WindowsGSM.Plugins
 
         public string FullName = "7DTD Dedicated Server - Experimental Beta";
         public override string StartPath => "7DaysToDieServer.exe";
+        public override bool loginAnonymous => true;
         public bool AllowsEmbedConsole = true;
-        public override bool loginAnonymous => false;
         public int PortIncrements = 1;
         public dynamic QueryMethod = new A2S();
 
@@ -107,9 +107,12 @@ namespace WindowsGSM.Plugins
             }
 
             string configPath = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "serverconfig.xml");
-            if (!File.Exists(configPath))
+            if (!File.Exists(configPath) && new FileInfo(configPath).Length == 0)
             {
-                Notice = $"serverconfig.xml not found ({configPath})";
+                Notice = $"serverconfig.xml not found ({configPath}), reloading it from https://github.com/WindowsGSM/Game-Server-Configs";
+                CreateServerCFG();
+                if (!File.Exists(configPath))
+                    Error = $"ConfigFile is still missing {configPath}";
             }
 
             if (Directory.Exists(OldProfile))
