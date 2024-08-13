@@ -6,6 +6,7 @@ using WindowsGSM.GameServer.Engine;
 using WindowsGSM.Functions;
 using WindowsGSM.GameServer.Query;
 using System.Threading;
+using System.Text;
 
 namespace WindowsGSM.Plugins
 {
@@ -60,33 +61,56 @@ namespace WindowsGSM.Plugins
 
         public SDTD_ExperimentalBeta(ServerConfig serverData) : base(serverData) => base.serverData = serverData;
 
-        public void CreateServerCFG()
+        public async void CreateServerCFG()
+        {
+            await DoCreateConfig();
+        }
+
+        public async Task DoCreateConfig()
         {
             //Download serverconfig.xml
             string configPath = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "serverconfig.xml");
-            string configTmp = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "serverconfig.xml.template");
 
-            if (Functions.Github.DownloadGameServerConfig(configTmp, "7 Days to Die Dedicated Server").Result)
+            if (File.Exists(configPath))
             {
-                //make a backup of the provided file
+                File.Delete(configPath + ".bak");
                 File.Move(configPath, configPath + ".bak");
+            }
 
-                //it would be possible to automatically move it, but that gets messy when the user has multiple servers
-                if (Directory.Exists(OldProfile))
-                    UI.CreateYesNoPromptV1("Old server userdata found", $"An Old Savegame found in {OldProfile}\n\n" +
-                        $"If you want to use it, you need to move/copy it manually to \n" +
-                        $"servers/{serverData.ServerID}/serverfiles/userdata", "Ok", "Ok");
-                string configText = File.ReadAllText(configTmp);
-                configText = configText.Replace("{{hostname}}", serverData.ServerName);
-                configText = configText.Replace("{{rcon_password}}", serverData.GetRCONPassword());
-                configText = configText.Replace("{{port}}", serverData.ServerPort);
-                configText = configText.Replace("{{telnetPort}}", (int.Parse(serverData.ServerPort) - int.Parse(Port) + 8081).ToString());
-                configText = configText.Replace("{{maxplayers}}", Maxplayers);
+            if (await Functions.Github.DownloadGameServerConfig(configPath, FullName))
+            {
+                if (!File.Exists(configPath))
+                {
+                    Console.WriteLine("Download from github seems to have failed.");
+                    return;
+                }
+                var sb = new StringBuilder();
+                StreamReader sr = new StreamReader(configPath);
+                var line = sr.ReadLine();
+                while (line != null)
+                {
+                    if (line.Contains("{{hostname}}"))
+                        sb.AppendLine(line.Replace("{{hostname}}", serverData.ServerName));
+                    else if (line.Contains("{{rcon_password}}"))
+                        sb.AppendLine(line.Replace("{{rcon_password}}", serverData.GetRCONPassword()));
+                    else if (line.Contains("{{port}}"))
+                        sb.AppendLine(line.Replace("{{port}}", serverData.ServerPort));
+                    else if (line.Contains("{{telnetPort}}"))
+                        sb.AppendLine(line.Replace("{{telnetPort}}", (int.Parse(serverData.ServerPort) - int.Parse(Port) + 8081).ToString()));
+                    else if (line.Contains("{{maxplayers}}"))
+                        sb.AppendLine(line.Replace("{{maxplayers}}", Maxplayers));
+                    else if (line.Contains("=\"UserDataFolder\""))
+                        //Move WorldData to local windowsGSM installation.
+                        //it is not good to have the serverdata in %AppData% as the user will forget it, as nearly all windowsgsm servers store it inside the WindosGSM structure
+                        //also the backup function would be useless without
+                        sb.AppendLine($"<property name=\"UserDataFolder\"\t\t\t\tvalue=\"userdata\" />");
+                    else
+                        sb.AppendLine(line);
 
-                //it is not good to have the serverdata in %AppData% as the user will forget it, as nearly all windowsgsm servers store it inside the WindosGSM structure
-                //also the backup function would be useless without
-                configText = configText.Replace("<!-- <property name=\"UserDataFolder\"\t\t\t\tvalue=\"absolute path\" /> -->", "<property name=\"UserDataFolder\"\t\t\t\tvalue=\"userdata\" />");
-                File.WriteAllText(configPath, configText);
+                    line = sr.ReadLine();
+                }
+                sr.Close();
+                File.WriteAllText(configPath, sb.ToString());
             }
 
             //Create steam_appid.txt
@@ -110,7 +134,7 @@ namespace WindowsGSM.Plugins
             if (!File.Exists(configPath) || new FileInfo(configPath).Length == 0)
             {
                 Notice = $"serverconfig.xml not found ({configPath}), reloading it from https://github.com/WindowsGSM/Game-Server-Configs";
-                CreateServerCFG();
+                await DoCreateConfig();
                 if (!File.Exists(configPath))
                     Error = $"ConfigFile is still missing {configPath}";
             }
@@ -165,7 +189,6 @@ namespace WindowsGSM.Plugins
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
             }
-            Console.WriteLine($"starting server:");
 
             return p;
         }
