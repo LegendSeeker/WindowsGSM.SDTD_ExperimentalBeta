@@ -18,7 +18,7 @@ When you install the server, **run update once to be sure you have the experimen
 - if your connection to the server fails with **"Server is still initializing"** after your gave it 15 min to start(frist start takes a while and should not be interrupted, it can break your save
   - look at the console(toggle console, could be that you need to toggle it three times) or
   - last log (Browse => Server Files => 7DaysToDieServer_Data => the last "output_log_dedi__*.txt")
-  - check if it contains **"SSL certificate problem: unable to get local issuer certificate"**. if yes:
+  - check if it contains **"TLS alert, unknown CA"**. if yes:
     - https://community.7daystodie.com/topic/32449-a21-windows-dedicated-server-eos-error-fix/ 
 
 ## Server Configuration
