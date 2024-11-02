@@ -8,7 +8,7 @@ If you already had a Server running where you want to continue, please move ever
 => to WindowsGSM servers/%ID%/serverfiles/userdata (you can find it by marking the server in wgsm and click Browse => Server Files )
 
 then replace the wgsm `serverconfig.xml` with your existing one . just make sure to keep/add:
-<property name="UserDataFolder"		value="userdata" />
+\<property name="UserDataFolder"		value="userdata" />
 
 ## Initial Setup
 When you install the server, **run update once to be sure you have the experimental beta branch**
