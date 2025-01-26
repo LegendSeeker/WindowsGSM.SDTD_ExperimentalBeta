@@ -37,8 +37,8 @@ namespace WindowsGSM.Plugins
             name = "WindowsGSM.SDTD_ExperimentalBeta",
             author = "LegendSeeker",
             description = "🧩 WindowsGSM plugin for supporting 7 Days to Die Dedicated Server running Experimental Beta",
-            version = "0.1",
-            url = "https://github.com/LegendSeeker/WindowsGSM.SDTD_ExperimentalBeta",
+            version = "1.0",
+            url = "https://github.com/raziel7893/WindowsGSM.SDTD_ExperimentalBeta",
             color = "#5c1504" // Color Hex
         };
 
