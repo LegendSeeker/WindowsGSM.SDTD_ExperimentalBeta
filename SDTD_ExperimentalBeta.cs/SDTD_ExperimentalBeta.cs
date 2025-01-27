@@ -2,9 +2,11 @@
 using System.Diagnostics;
 using System.IO;
 using System;
-using WindowsGSM.Installer;
 using WindowsGSM.GameServer.Engine;
 using WindowsGSM.Functions;
+using WindowsGSM.GameServer.Query;
+using System.Threading;
+using System.Text;
 
 namespace WindowsGSM.Plugins
 {
@@ -35,21 +37,17 @@ namespace WindowsGSM.Plugins
             name = "WindowsGSM.SDTD_ExperimentalBeta",
             author = "LegendSeeker",
             description = "🧩 WindowsGSM plugin for supporting 7 Days to Die Dedicated Server running Experimental Beta",
-            version = "0.1",
-            url = "https://github.com/LegendSeeker/WindowsGSM.SDTD_ExperimentalBeta", 
+            version = "1.0",
+            url = "https://github.com/raziel7893/WindowsGSM.SDTD_ExperimentalBeta",
             color = "#5c1504" // Color Hex
         };
 
-        private readonly Functions.ServerConfig _serverData;
-
-        public new string Error;
-        public new string Notice;
-
         public string FullName = "7DTD Dedicated Server - Experimental Beta";
-        public new string StartPath = "7DaysToDieServer.exe";
+        public override string StartPath => "7DaysToDieServer.exe";
+        public override bool loginAnonymous => true;
         public bool AllowsEmbedConsole = true;
         public int PortIncrements = 1;
-        public dynamic QueryMethod = null;
+        public dynamic QueryMethod = new A2S();
 
         public string Port = "26900";
         public string QueryPort = "26900";
@@ -57,34 +55,73 @@ namespace WindowsGSM.Plugins
         public string Maxplayers = "8";
         public string Additional = string.Empty;
 
-        public new string AppId = "294420";
+        public override string AppId => "294420";
 
-        public SDTD_ExperimentalBeta(ServerConfig serverData) : base(serverData) => base.serverData = _serverData = serverData;
+        public string OldProfile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7DaysToDie\\Saves");
+
+        public SDTD_ExperimentalBeta(ServerConfig serverData) : base(serverData) => base.serverData = serverData;
 
         public async void CreateServerCFG()
         {
+            await DoCreateConfig();
+        }
+
+        public async Task DoCreateConfig()
+        {
             //Download serverconfig.xml
-            string configPath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, "serverconfig.xml");
+            string configPath = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "serverconfig.xml");
+
+            if (File.Exists(configPath))
+            {
+                File.Delete(configPath + ".bak");
+                File.Move(configPath, configPath + ".bak");
+            }
+
             if (await Functions.Github.DownloadGameServerConfig(configPath, FullName))
             {
-                string configText = File.ReadAllText(configPath);
-                configText = configText.Replace("{{hostname}}", _serverData.ServerName);
-                configText = configText.Replace("{{rcon_password}}", _serverData.GetRCONPassword());
-                configText = configText.Replace("{{port}}", _serverData.ServerPort);
-                configText = configText.Replace("{{telnetPort}}", (int.Parse(_serverData.ServerPort) - int.Parse(Port) + 8081).ToString());
-                configText = configText.Replace("{{maxplayers}}", Maxplayers);
-                File.WriteAllText(configPath, configText);
+                if (!File.Exists(configPath))
+                {
+                    Console.WriteLine("Download from github seems to have failed.");
+                    return;
+                }
+                var sb = new StringBuilder();
+                StreamReader sr = new StreamReader(configPath);
+                var line = sr.ReadLine();
+                while (line != null)
+                {
+                    if (line.Contains("{{hostname}}"))
+                        sb.AppendLine(line.Replace("{{hostname}}", serverData.ServerName));
+                    else if (line.Contains("{{rcon_password}}"))
+                        sb.AppendLine(line.Replace("{{rcon_password}}", serverData.GetRCONPassword()));
+                    else if (line.Contains("{{port}}"))
+                        sb.AppendLine(line.Replace("{{port}}", serverData.ServerPort));
+                    else if (line.Contains("{{telnetPort}}"))
+                        sb.AppendLine(line.Replace("{{telnetPort}}", (int.Parse(serverData.ServerPort) - int.Parse(Port) + 8081).ToString()));
+                    else if (line.Contains("{{maxplayers}}"))
+                        sb.AppendLine(line.Replace("{{maxplayers}}", Maxplayers));
+                    else if (line.Contains("=\"UserDataFolder\""))
+                        //Move WorldData to local windowsGSM installation.
+                        //it is not good to have the serverdata in %AppData% as the user will forget it, as nearly all windowsgsm servers store it inside the WindosGSM structure
+                        //also the backup function would be useless without
+                        sb.AppendLine($"<property name=\"UserDataFolder\"\t\t\t\tvalue=\"userdata\" />");
+                    else
+                        sb.AppendLine(line);
+
+                    line = sr.ReadLine();
+                }
+                sr.Close();
+                File.WriteAllText(configPath, sb.ToString());
             }
 
             //Create steam_appid.txt
-            string txtPath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, "steam_appid.txt");
+            string txtPath = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "steam_appid.txt");
             File.WriteAllText(txtPath, "251570");
         }
 
         public async Task<Process> Start()
         {
             string exeName = "7DaysToDieServer.exe";
-            string workingDir = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID);
+            string workingDir = Functions.ServerPath.GetServersServerFiles(serverData.ServerID);
             string exePath = Path.Combine(workingDir, exeName);
 
             if (!File.Exists(exePath))
@@ -93,14 +130,27 @@ namespace WindowsGSM.Plugins
                 return null;
             }
 
-            string configPath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, "serverconfig.xml");
-            if (!File.Exists(configPath))
+            string configPath = Functions.ServerPath.GetServersServerFiles(serverData.ServerID, "serverconfig.xml");
+            if (!File.Exists(configPath) || new FileInfo(configPath).Length == 0)
             {
-                Notice = $"serverconfig.xml not found ({configPath})";
+                Notice = $"serverconfig.xml not found ({configPath}), reloading it from https://github.com/WindowsGSM/Game-Server-Configs";
+                await DoCreateConfig();
+                if (!File.Exists(configPath))
+                    Error = $"ConfigFile is still missing {configPath}";
+            }
+
+            if (Directory.Exists(OldProfile))
+            {
+                Notice = Notice + $"An Old Savegame found in {OldProfile}\n\n" +
+                        $"If you want to have it Inside WindowsGSM to have it all in one place move it to\n" +
+                        $"servers/{serverData.ServerID}/serverfiles/userdata.\n" +
+                        $"and modify value \"UserDataFolder\" in serverconfig.xml to value \"userdata\"\n" +
+                        $"For More info see the readme of this plugin\n" +
+                        $"If this is intentional, ignore this";
             }
 
             string logFile = @"7DaysToDieServer_Data\output_log_dedi__" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss") + ".txt";
-            string param = $"-logfile \"{Path.Combine(workingDir, logFile)}\" -quit -batchmode -nographics -configfile=serverconfig.xml -dedicated {_serverData.ServerParam}";
+            string param = $"-logfile \"{Path.Combine(workingDir, logFile)}\" -quit -batchmode -nographics -configfile=serverconfig.xml -dedicated {serverData.ServerParam}";
 
             Process p;
             if (!AllowsEmbedConsole)
@@ -134,7 +184,7 @@ namespace WindowsGSM.Plugins
                     },
                     EnableRaisingEvents = true
                 };
-                var serverConsole = new Functions.ServerConsole(_serverData.ServerID);
+                var serverConsole = new Functions.ServerConsole(serverData.ServerID);
                 p.OutputDataReceived += serverConsole.AddOutput;
                 p.ErrorDataReceived += serverConsole.AddOutput;
                 p.Start();
@@ -147,61 +197,28 @@ namespace WindowsGSM.Plugins
 
         public async Task Stop(Process p)
         {
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 Functions.ServerConsole.SetMainWindow(p.MainWindowHandle);
-                p.CloseMainWindow();
+                Functions.ServerConsole.SendWaitToMainWindow("^c");
+                Thread.Sleep(500);
                 Functions.ServerConsole.SendWaitToMainWindow("{ENTER}");
+
+                p.CloseMainWindow();
+                Thread.Sleep(1000);
+                if (!p.HasExited)
+                    p.Kill();
             });
-        }
-
-        public new async Task<Process> Install()
-        {
-            var steamCMD = new Installer.SteamCMD();            
-
-            Process p = await steamCMD.Install(_serverData.ServerID, string.Empty, AppId);
-            Error = steamCMD.Error;
-
-            return p;
         }
 
         public new async Task<Process> Update(bool validate = false, string custom = null)
         {
             custom = "-beta latest_experimental";
-			validate = true;
-			
-            var (p, error) = await Installer.SteamCMD.UpdateEx(_serverData.ServerID, AppId, validate, custom: custom);
+            validate = true;
+
+            var (p, error) = await Installer.SteamCMD.UpdateEx(serverData.ServerID, AppId, validate, custom: custom);
             Error = error;
             return p;
-        }
-
-        public new bool IsInstallValid()
-        {
-            string exeFile = "7DaysToDieServer.exe";
-            string exePath = Functions.ServerPath.GetServersServerFiles(_serverData.ServerID, exeFile);
-
-            return File.Exists(exePath);
-        }
-
-        public new bool IsImportValid(string path)
-        {
-            string exeFile = "7DaysToDieServer.exe";
-            string exePath = Path.Combine(path, exeFile);
-
-            Error = $"Invalid Path! Fail to find {exeFile}";
-            return File.Exists(exePath);
-        }
-
-        public new string GetLocalBuild()
-        {
-            var steamCMD = new Installer.SteamCMD();
-            return steamCMD.GetLocalBuild(_serverData.ServerID, AppId);
-        }
-
-        public new async Task<string> GetRemoteBuild()
-        {
-            var steamCMD = new Installer.SteamCMD();
-            return await steamCMD.GetRemoteBuild(AppId);
         }
     }
 }
